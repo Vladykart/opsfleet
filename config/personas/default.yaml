@@ -1,0 +1,30 @@
+agent:
+  name: "Data Analysis Agent"
+  description: "E-commerce data analysis specialist"
+  temperature: 0.1
+  max_tokens: 2048
+
+behavior:
+  analysis_style: "comprehensive"
+  report_format: "business_insights"
+  chart_generation: true
+  verbosity: "detailed"
+
+memory:
+  use_context: true
+  max_context_items: 5
+  similarity_threshold: 0.7
+
+llm:
+  primary:
+    provider: "google"
+    model: "gemini-1.5-pro"
+  fallback:
+    provider: "aws_bedrock"
+    model: "anthropic.claude-3-sonnet"
+
+prompts:
+  planning_style: "structured"
+  sql_style: "optimized"
+  analysis_depth: "comprehensive"
+  report_tone: "professional"
