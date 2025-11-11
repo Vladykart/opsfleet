@@ -49,6 +49,12 @@ gcloud config set project YOUR_PROJECT_ID
 
 ### 5. Run
 
+**Enhanced CLI (Recommended):**
+```bash
+python cli_enhanced.py
+```
+
+**Simple CLI:**
 ```bash
 python cli_simple.py
 ```

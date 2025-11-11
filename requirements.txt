@@ -4,3 +4,4 @@ langchain-core==0.3.10
 google-cloud-bigquery==3.25.0
 python-dotenv==1.0.0
 rich==13.0.0
+prompt-toolkit==3.0.43
