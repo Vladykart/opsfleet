@@ -414,7 +414,7 @@ class RichChatCLI:
             return [
                 "Dive deeper into specific details",
                 "Compare with other metrics or categories",
-                "Save this conversation for later"
+                "Save this conversation (just say 'save this as csv')"
             ]
     
     def process_query(self, query: str):
@@ -484,6 +484,31 @@ class RichChatCLI:
         
         return True
     
+    def detect_save_request(self, query: str) -> Optional[str]:
+        query_lower = query.lower()
+        
+        save_keywords = [
+            "save this", "save the", "save conversation", "save data",
+            "export this", "export the", "download this", "download the",
+            "can you save", "please save", "i want to save", "save it"
+        ]
+        
+        if any(keyword in query_lower for keyword in save_keywords):
+            if "csv" in query_lower:
+                return "csv"
+            elif "json" in query_lower:
+                return "json"
+            elif "excel" in query_lower or "xlsx" in query_lower:
+                return "excel"
+            elif "markdown" in query_lower or " md" in query_lower:
+                return "md"
+            elif "text" in query_lower or "txt" in query_lower:
+                return "txt"
+            else:
+                return "csv"
+        
+        return None
+    
     def run(self):
         self.console.clear()
         self.show_banner()
@@ -508,6 +533,11 @@ class RichChatCLI:
                     if query.startswith("/"):
                         if not self.handle_command(query):
                             break
+                        continue
+                    
+                    save_format = self.detect_save_request(query)
+                    if save_format:
+                        self.save_conversation(save_format)
                         continue
                     
                     self.process_query(query)
