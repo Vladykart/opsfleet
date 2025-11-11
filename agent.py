@@ -13,18 +13,15 @@ from dataclasses import dataclass
 from langgraph.graph import StateGraph, END, START
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage, AIMessage, ToolMessage, BaseMessage
-from langchain_core.tools import tool
 from langgraph.graph.message import add_messages
-from google.cloud import bigquery
 from dotenv import load_dotenv
 
-from schema_analyzer import get_schema_info, get_relationships
+from endpoints import query_bigquery, analyze_schema
+
 
 @dataclass(frozen=True)
 class Config:
     """Application configuration."""
-    gcp_project_id: str | None
-    credentials_path: Path | None
     langsmith_enabled: bool
     langsmith_project: str
 
@@ -33,10 +30,7 @@ class Config:
         """Load configuration from environment variables."""
         load_dotenv()
         
-        creds_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
         return cls(
-            gcp_project_id=os.getenv("GCP_PROJECT_ID"),
-            credentials_path=Path(creds_path) if creds_path else None,
             langsmith_enabled=os.getenv("LANGCHAIN_TRACING_V2") == "true",
             langsmith_project=os.getenv("LANGCHAIN_PROJECT", "opsfleet-agent")
         )
@@ -50,111 +44,6 @@ if config.langsmith_enabled:
     os.environ["LANGCHAIN_ENDPOINT"] = "https://api.smith.langchain.com"
     os.environ["LANGCHAIN_PROJECT"] = config.langsmith_project
     print("✅ LangSmith tracing enabled")
-
-def create_bigquery_client(cfg: Config) -> bigquery.Client:
-    """Create BigQuery client with appropriate credentials.
-    
-    Args:
-        cfg: Application configuration
-        
-    Returns:
-        Configured BigQuery client
-    """
-    match cfg.credentials_path:
-        case Path() as path if path.exists():
-            from google.oauth2 import service_account
-            credentials = service_account.Credentials.from_service_account_file(str(path))
-            return bigquery.Client(project=cfg.gcp_project_id, credentials=credentials)
-        case _:
-            # Use Application Default Credentials
-            return bigquery.Client(project=cfg.gcp_project_id)
-
-
-# Initialize BigQuery client
-bq_client = create_bigquery_client(config)
-
-
-@tool
-def query_bigquery(sql: str) -> str:
-    """Execute a BigQuery SQL query and return results.
-    
-    Args:
-        sql: The SQL query to execute
-        
-    Returns:
-        Query results as formatted string
-    """
-    try:
-        query_job = bq_client.query(sql)
-        rows = [dict(row) for row in query_job.result()]
-        
-        match rows:
-            case []:
-                return "Query executed successfully but returned no results."
-            case [*results]:
-                # Return first 10 rows
-                return str(results[:10])
-    except Exception as e:
-        return f"Error executing query: {str(e)}"
-
-
-@tool
-def analyze_schema(table_name: str | None = None) -> str:
-    """Analyze database schema and return detailed information.
-    
-    Args:
-        table_name: Optional table name to analyze. If None, returns summary of all tables.
-        
-    Returns:
-        Schema analysis as formatted string
-    """
-    try:
-        match table_name:
-            case str() as name:
-                # Analyze specific table
-                analysis = get_schema_info(name)
-                
-                result = f"""
-📋 Table: {analysis['table_name']}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📊 Statistics:
-  • Rows: {analysis['row_count']:,}
-  • Size: {analysis['size_mb']} MB
-  • Columns: {analysis['column_count']}
-
-📝 Columns:
-"""
-                for col in analysis['columns']:
-                    result += f"  • {col['name']} ({col['type']}) - {col['description']}\n"
-                
-                # Add relationships
-                relationships = get_relationships()
-                if name in relationships:
-                    result += "\n🔗 Relationships:\n"
-                    for rel in relationships[name]:
-                        result += f"  → {rel}\n"
-                
-                return result
-            
-            case None:
-                # Return summary of all tables
-                summary = get_schema_info()
-                result = f"""
-📊 Database Summary: {summary['dataset']}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  • Tables: {summary['table_count']}
-  • Total Rows: {summary['total_rows']:,}
-  • Total Size: {summary['total_size_mb']} MB
-
-📋 Tables:
-"""
-                for table, info in summary['tables'].items():
-                    result += f"  • {table}: {info['rows']:,} rows, {info['columns']} columns, {info['size_mb']} MB\n"
-                
-                return result
-            
-    except Exception as e:
-        return f"Error analyzing schema: {str(e)}"
 
 
 # Define the agent state
