@@ -625,9 +625,15 @@ class BeautifulCLI:
     async def run(self):
         """Main CLI loop"""
         self.console.clear()
-        self.show_welcome()
+        
+        # Show loading message
+        self.console.print("\n[cyan]⚙️  Initializing OpsFleet Agent...[/cyan]\n")
         
         await self.initialize()
+        
+        # Show welcome after initialization
+        self.console.clear()
+        self.show_welcome()
         
         self.console.print("\n[green]✓ Ready![/green] Type your question or 'help' for commands.\n")
         
