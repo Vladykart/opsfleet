@@ -29,7 +29,7 @@ class TestConfig:
     
     def test_config_defaults(self):
         """Test config with default values."""
-        with patch.dict('os.environ', {}, clear=True):
+        with patch.dict('os.environ', {'LANGCHAIN_TRACING_V2': 'false'}, clear=True):
             config = Config.from_env()
             assert config.langsmith_enabled is False
             assert config.langsmith_project == 'opsfleet-agent'
@@ -91,34 +91,38 @@ class TestRunAgent:
     """Test run_agent function."""
     
     @patch('agent.app')
-    def test_run_agent_returns_string(self, mock_app):
+    @patch('agent.load_prompt')
+    def test_run_agent_returns_string(self, mock_load_prompt, mock_app):
         """Test that run_agent returns a string response."""
-        mock_message = Mock()
-        mock_message.content = "Test response"
+        from langchain_core.messages import AIMessage
+        
+        mock_load_prompt.return_value = "test prompt"
+        mock_message = AIMessage(content="Test response")
         
         mock_app.invoke.return_value = {
             "messages": [mock_message]
         }
         
-        with patch('agent.AIMessage', return_value=type('AIMessage', (), {})):
-            with patch('isinstance', return_value=True):
-                result = run_agent("test query")
-                assert isinstance(result, str)
+        result = run_agent("test query")
+        assert isinstance(result, str)
+        assert result == "Test response"
     
     @patch('agent.app')
-    def test_run_agent_handles_list_content(self, mock_app):
+    @patch('agent.load_prompt')
+    def test_run_agent_handles_list_content(self, mock_load_prompt, mock_app):
         """Test that run_agent handles list content."""
-        mock_message = Mock()
-        mock_message.content = [{"text": "Response 1"}, {"text": "Response 2"}]
+        from langchain_core.messages import AIMessage
+        
+        mock_load_prompt.return_value = "test prompt"
+        mock_message = AIMessage(content=[{"text": "Response 1"}, {"text": "Response 2"}])
         
         mock_app.invoke.return_value = {
             "messages": [mock_message]
         }
         
-        with patch('agent.AIMessage', return_value=type('AIMessage', (), {})):
-            with patch('isinstance', return_value=True):
-                result = run_agent("test query")
-                assert "Response 1" in result or "Response 2" in result
+        result = run_agent("test query")
+        assert "Response 1" in result
+        assert "Response 2" in result
 
 
 class TestAgentState:
