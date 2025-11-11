@@ -16,7 +16,7 @@ from langchain_core.messages import HumanMessage, AIMessage, ToolMessage, BaseMe
 from langgraph.graph.message import add_messages
 from dotenv import load_dotenv
 
-from endpoints import query_bigquery, analyze_schema
+from endpoints import query_bigquery, analyze_schema, save_conversation
 
 
 @dataclass(frozen=True)
@@ -58,7 +58,7 @@ llm = ChatGoogleGenerativeAI(
     temperature=0.1,  # Low temperature for precise SQL generation
     max_tokens=2048
 )
-tools = [query_bigquery, analyze_schema]
+tools = [query_bigquery, analyze_schema, save_conversation]
 llm_with_tools = llm.bind_tools(tools)
 
 

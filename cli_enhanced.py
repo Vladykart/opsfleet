@@ -487,9 +487,12 @@ class RichChatCLI:
         
         elapsed = (datetime.now() - start_time).total_seconds()
         
+        # Check if agent wants to save conversation
+        cleaned_response, save_format = self.extract_save_command(response)
+        
         # Log: Formatting response
         self.console.print("[dim]→ Formatting response...[/dim]\n")
-        self.format_response(response)
+        self.format_response(cleaned_response)
         
         # Show timing and token info
         info_text = f"[dim]⏱️  Completed in {elapsed:.2f}s"
@@ -498,13 +501,18 @@ class RichChatCLI:
         info_text += "[/dim]\n"
         self.console.print(info_text)
         
+        # If agent requested save, do it
+        if save_format:
+            self.console.print(f"\n[cyan]💾 Saving conversation as {save_format}...[/cyan]")
+            self.save_conversation(save_format)
+        
         if success:
-            self.suggest_next_steps(query, response)
+            self.suggest_next_steps(query, cleaned_response)
         
         self.history.append({
             "time": start_time.strftime("%H:%M:%S"),
             "query": query,
-            "response": response,
+            "response": cleaned_response,
             "success": success,
             "elapsed": elapsed
         })
@@ -539,30 +547,25 @@ class RichChatCLI:
         
         return True
     
-    def detect_save_request(self, query: str) -> Optional[str]:
-        query_lower = query.lower()
+    def extract_save_command(self, response: str) -> tuple[str, str | None]:
+        """Extract save command from agent response if present.
         
-        save_keywords = [
-            "save this", "save the", "save conversation", "save data",
-            "export this", "export the", "download this", "download the",
-            "can you save", "please save", "i want to save", "save it"
-        ]
+        Args:
+            response: Agent's response text
+            
+        Returns:
+            Tuple of (cleaned_response, format_type or None)
+        """
+        if "__SAVE_CONVERSATION__" in response:
+            # Extract format from marker
+            parts = response.split("__SAVE_CONVERSATION__")
+            if len(parts) >= 2:
+                format_part = parts[1].split("__")[0]
+                # Remove the marker from response
+                cleaned_response = parts[0].strip()
+                return cleaned_response, format_part
         
-        if any(keyword in query_lower for keyword in save_keywords):
-            if "csv" in query_lower:
-                return "csv"
-            elif "json" in query_lower:
-                return "json"
-            elif "excel" in query_lower or "xlsx" in query_lower:
-                return "excel"
-            elif "markdown" in query_lower or " md" in query_lower:
-                return "md"
-            elif "text" in query_lower or "txt" in query_lower:
-                return "txt"
-            else:
-                return "csv"
-        
-        return None
+        return response, None
     
     def show_welcome_message(self):
         """Display welcome message from the agent."""
