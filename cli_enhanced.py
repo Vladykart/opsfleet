@@ -490,6 +490,11 @@ class RichChatCLI:
         # Check if agent wants to save conversation
         cleaned_response, save_format = self.extract_save_command(response)
         
+        # If agent said "saved" but didn't call tool, warn and suggest /save command
+        if not save_format and any(word in response.lower() for word in ["saved", "save the", "saved the", "exported", "downloaded"]):
+            if any(fmt in response.lower() for fmt in ["json", "csv", "excel", "markdown", "txt"]):
+                self.console.print("[yellow]⚠️  Agent mentioned saving but didn't execute. Use /save command instead.[/yellow]\n")
+        
         # Log: Formatting response
         self.console.print("[dim]→ Formatting response...[/dim]\n")
         self.format_response(cleaned_response)
