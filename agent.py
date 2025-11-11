@@ -1,9 +1,15 @@
+"""BigQuery Agent using LangGraph and Gemini.
+
+Modern Python implementation with type hints, match-case statements,
+and best practices for maintainability and readability.
 """
-Simple BigQuery Agent using LangGraph and Gemini.
-Uses Application Default Credentials (ADC) or service account for authentication.
-"""
+from __future__ import annotations
+
 import os
-from typing import TypedDict, Annotated, Sequence
+from pathlib import Path
+from typing import TypedDict, Annotated, Sequence, Any
+from dataclasses import dataclass
+
 from langgraph.graph import StateGraph, END, START
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage, AIMessage, ToolMessage, BaseMessage
@@ -11,61 +17,90 @@ from langchain_core.tools import tool
 from langgraph.graph.message import add_messages
 from google.cloud import bigquery
 from dotenv import load_dotenv
-from schema_analyzer import schema_analyzer, get_schema_info, get_relationships
-import json
 
-# Load environment variables
-load_dotenv()
+from schema_analyzer import get_schema_info, get_relationships
+
+@dataclass(frozen=True)
+class Config:
+    """Application configuration."""
+    gcp_project_id: str | None
+    credentials_path: Path | None
+    langsmith_enabled: bool
+    langsmith_project: str
+
+    @classmethod
+    def from_env(cls) -> Config:
+        """Load configuration from environment variables."""
+        load_dotenv()
+        
+        creds_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+        return cls(
+            gcp_project_id=os.getenv("GCP_PROJECT_ID"),
+            credentials_path=Path(creds_path) if creds_path else None,
+            langsmith_enabled=os.getenv("LANGCHAIN_TRACING_V2") == "true",
+            langsmith_project=os.getenv("LANGCHAIN_PROJECT", "opsfleet-agent")
+        )
+
+
+# Initialize configuration
+config = Config.from_env()
 
 # Enable LangSmith tracing if configured
-if os.getenv("LANGCHAIN_TRACING_V2") == "true":
+if config.langsmith_enabled:
     os.environ["LANGCHAIN_ENDPOINT"] = "https://api.smith.langchain.com"
-    os.environ["LANGCHAIN_PROJECT"] = os.getenv("LANGCHAIN_PROJECT", "opsfleet-agent")
+    os.environ["LANGCHAIN_PROJECT"] = config.langsmith_project
     print("✅ LangSmith tracing enabled")
 
-# Initialize BigQuery client
-# Will use GOOGLE_APPLICATION_CREDENTIALS if set, otherwise ADC
-project_id = os.getenv("GCP_PROJECT_ID")
+def create_bigquery_client(cfg: Config) -> bigquery.Client:
+    """Create BigQuery client with appropriate credentials.
+    
+    Args:
+        cfg: Application configuration
+        
+    Returns:
+        Configured BigQuery client
+    """
+    match cfg.credentials_path:
+        case Path() as path if path.exists():
+            from google.oauth2 import service_account
+            credentials = service_account.Credentials.from_service_account_file(str(path))
+            return bigquery.Client(project=cfg.gcp_project_id, credentials=credentials)
+        case _:
+            # Use Application Default Credentials
+            return bigquery.Client(project=cfg.gcp_project_id)
 
-# Check if credentials file is specified
-credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-if credentials_path and os.path.exists(credentials_path):
-    from google.oauth2 import service_account
-    credentials = service_account.Credentials.from_service_account_file(credentials_path)
-    bq_client = bigquery.Client(project=project_id, credentials=credentials)
-else:
-    # Use ADC
-    bq_client = bigquery.Client(project=project_id)
+
+# Initialize BigQuery client
+bq_client = create_bigquery_client(config)
 
 
 @tool
 def query_bigquery(sql: str) -> str:
-    """
-    Execute a BigQuery SQL query and return results.
+    """Execute a BigQuery SQL query and return results.
     
     Args:
         sql: The SQL query to execute
         
     Returns:
-        Query results as string
+        Query results as formatted string
     """
     try:
         query_job = bq_client.query(sql)
         rows = [dict(row) for row in query_job.result()]
         
-        if not rows:
-            return "Query executed successfully but returned no results."
-        
-        # Return first 10 rows
-        return str(rows[:10])
+        match rows:
+            case []:
+                return "Query executed successfully but returned no results."
+            case [*results]:
+                # Return first 10 rows
+                return str(results[:10])
     except Exception as e:
         return f"Error executing query: {str(e)}"
 
 
 @tool
-def analyze_schema(table_name: str = None) -> str:
-    """
-    Analyze database schema and return detailed information.
+def analyze_schema(table_name: str | None = None) -> str:
+    """Analyze database schema and return detailed information.
     
     Args:
         table_name: Optional table name to analyze. If None, returns summary of all tables.
@@ -74,11 +109,12 @@ def analyze_schema(table_name: str = None) -> str:
         Schema analysis as formatted string
     """
     try:
-        if table_name:
-            # Analyze specific table
-            analysis = get_schema_info(table_name)
-            
-            result = f"""
+        match table_name:
+            case str() as name:
+                # Analyze specific table
+                analysis = get_schema_info(name)
+                
+                result = f"""
 📋 Table: {analysis['table_name']}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📊 Statistics:
@@ -88,21 +124,22 @@ def analyze_schema(table_name: str = None) -> str:
 
 📝 Columns:
 """
-            for col in analysis['columns']:
-                result += f"  • {col['name']} ({col['type']}) - {col['description']}\n"
+                for col in analysis['columns']:
+                    result += f"  • {col['name']} ({col['type']}) - {col['description']}\n"
+                
+                # Add relationships
+                relationships = get_relationships()
+                if name in relationships:
+                    result += "\n🔗 Relationships:\n"
+                    for rel in relationships[name]:
+                        result += f"  → {rel}\n"
+                
+                return result
             
-            # Add relationships
-            relationships = get_relationships()
-            if table_name in relationships:
-                result += "\n🔗 Relationships:\n"
-                for rel in relationships[table_name]:
-                    result += f"  → {rel}\n"
-            
-            return result
-        else:
-            # Return summary
-            summary = get_schema_info()
-            result = f"""
+            case None:
+                # Return summary of all tables
+                summary = get_schema_info()
+                result = f"""
 📊 Database Summary: {summary['dataset']}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   • Tables: {summary['table_count']}
@@ -111,10 +148,10 @@ def analyze_schema(table_name: str = None) -> str:
 
 📋 Tables:
 """
-            for table, info in summary['tables'].items():
-                result += f"  • {table}: {info['rows']:,} rows, {info['columns']} columns, {info['size_mb']} MB\n"
-            
-            return result
+                for table, info in summary['tables'].items():
+                    result += f"  • {table}: {info['rows']:,} rows, {info['columns']} columns, {info['size_mb']} MB\n"
+                
+                return result
             
     except Exception as e:
         return f"Error analyzing schema: {str(e)}"
@@ -207,16 +244,42 @@ graph = app  # Export for LangGraph server
 
 
 def load_prompt(query: str) -> str:
-    """Load the system prompt from file and format with query."""
-    prompt_path = os.path.join(os.path.dirname(__file__), "prompts", "system_prompt.txt")
-    with open(prompt_path, "r") as f:
-        template = f.read()
-    return template.format(query=query)
+    """Load the system prompt from file and format with query.
+    
+    Args:
+        query: User's question to inject into prompt
+        
+    Returns:
+        Formatted prompt string
+    """
+    prompt_path = Path(__file__).parent / "prompts" / "system_prompt.txt"
+    return prompt_path.read_text(encoding="utf-8").format(query=query)
+
+
+def _extract_content(content: str | list[dict[str, Any]]) -> str:
+    """Extract text content from AI message.
+    
+    Args:
+        content: Message content (string or list of content blocks)
+        
+    Returns:
+        Extracted text string
+    """
+    match content:
+        case str() as text:
+            return text
+        case list() as blocks:
+            text_parts = [
+                item.get("text", item) if isinstance(item, dict) else str(item)
+                for item in blocks
+            ]
+            return "\n".join(text_parts) if text_parts else "No response generated"
+        case _:
+            return "No response generated"
 
 
 def run_agent(query: str) -> str:
-    """
-    Run the agent with a query.
+    """Run the agent with a query.
     
     Args:
         query: The user's question
@@ -228,20 +291,10 @@ def run_agent(query: str) -> str:
     initial_state = {"messages": [HumanMessage(content=prompt)]}
     result = app.invoke(initial_state)
     
+    # Find the last AI message
     for message in reversed(result["messages"]):
         if isinstance(message, AIMessage):
-            content = message.content
-            # Handle both string and list content
-            if isinstance(content, list):
-                # Extract text from content blocks
-                text_parts = []
-                for item in content:
-                    if isinstance(item, dict) and "text" in item:
-                        text_parts.append(item["text"])
-                    elif isinstance(item, str):
-                        text_parts.append(item)
-                return "\n".join(text_parts) if text_parts else "No response generated"
-            return content
+            return _extract_content(message.content)
     
     return "No response generated"
 
