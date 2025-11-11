@@ -1,0 +1,7 @@
+{
+  "dependencies": ["."],
+  "graphs": {
+    "opsfleet_agent": "./agent.py:graph"
+  },
+  "env": ".env"
+}
