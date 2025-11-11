@@ -42,6 +42,43 @@ This is a production-ready **Professional ReAct Agent** that combines strategic 
 - 📈 **Confidence Scoring** - Success probability estimation
 - 🔄 **Cached Data Samples** - Reused across session for performance
 
+## 📸 Screenshots
+
+### Beautiful CLI Interface
+
+The OpsFleet agent features a modern, professional CLI with ASCII art branding and real-time progress tracking.
+
+![OpsFleet CLI Welcome Screen](docs/screenshots/cli-welcome.png)
+*Welcome screen with OPSFLEET ASCII art logo, features panel, and commands*
+
+### Live Query Execution
+
+Watch the agent work through its 5-stage pipeline with detailed progress updates.
+
+![Query Execution Progress](docs/screenshots/query-execution.png)
+*Real-time progress showing Understanding → Planning → Execution → Validation → Synthesis*
+
+### Execution Details
+
+See the complete execution plan with step-by-step breakdown and results.
+
+![Execution Details](docs/screenshots/execution-details.png)
+*Detailed execution plan showing actions, thoughts, and outputs*
+
+### Data Results
+
+Beautiful table rendering with summary statistics for quick insights.
+
+![Data Results](docs/screenshots/data-results.png)
+*Query results with formatted tables and summary statistics*
+
+### Multi-Stage Pipeline
+
+Visual representation of the agent's thinking process through each stage.
+
+![Pipeline Stages](docs/screenshots/pipeline-stages.png)
+*5-stage pipeline: Database → Understanding → Planning → Execution → Validation → Interpretation → Synthesis*
+
 ## 🏗️ Architecture
 
 ### System Overview
