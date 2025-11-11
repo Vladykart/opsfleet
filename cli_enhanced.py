@@ -355,6 +355,68 @@ class RichChatCLI:
         ))
         self.console.print()
     
+    def suggest_next_steps(self, query: str, response: str):
+        suggestions = self._generate_suggestions(query, response)
+        
+        if not suggestions:
+            return
+        
+        suggestions_table = Table(
+            title="💡 What would you like to do next?",
+            box=box.ROUNDED,
+            border_style="cyan",
+            show_header=False,
+            padding=(0, 1)
+        )
+        suggestions_table.add_column("Option", style="cyan bold", width=8)
+        suggestions_table.add_column("Suggestion", style="white")
+        
+        for idx, suggestion in enumerate(suggestions, 1):
+            suggestions_table.add_row(f"[{idx}]", suggestion)
+        
+        self.console.print(suggestions_table)
+        self.console.print("[dim]💬 Type your choice or ask a new question[/dim]\n")
+    
+    def _generate_suggestions(self, query: str, response: str) -> List[str]:
+        query_lower = query.lower()
+        
+        if "how many" in query_lower or "count" in query_lower:
+            return [
+                "Show me the top 10 by a specific metric",
+                "Break down the data by category or region",
+                "Compare with historical data or trends"
+            ]
+        elif "top" in query_lower or "best" in query_lower or "highest" in query_lower:
+            return [
+                "Show me the bottom/worst performers",
+                "Analyze the trend over time",
+                "Get detailed information about the top item"
+            ]
+        elif "recent" in query_lower or "latest" in query_lower:
+            return [
+                "Compare with older data",
+                "Show trends over a longer period",
+                "Filter by specific criteria"
+            ]
+        elif "average" in query_lower or "mean" in query_lower:
+            return [
+                "Show the distribution or breakdown",
+                "Compare with median or other metrics",
+                "Identify outliers or anomalies"
+            ]
+        elif "schema" in query_lower or "table" in query_lower:
+            return [
+                "Query data from this table",
+                "See relationships with other tables",
+                "Get sample data from the table"
+            ]
+        else:
+            return [
+                "Dive deeper into specific details",
+                "Compare with other metrics or categories",
+                "Save this conversation for later"
+            ]
+    
     def process_query(self, query: str):
         start_time = datetime.now()
         
@@ -380,6 +442,9 @@ class RichChatCLI:
         self.format_response(response)
         
         self.console.print(f"[dim]⏱️  Completed in {elapsed:.2f}s[/dim]\n")
+        
+        if success:
+            self.suggest_next_steps(query, response)
         
         self.history.append({
             "time": start_time.strftime("%H:%M:%S"),
