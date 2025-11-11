@@ -9,8 +9,9 @@ This project implements an intelligent data analysis agent that uses:
 - **MCP (Model Context Protocol)** for tool integration
 - **BigQuery** for data access via MCP server
 - **Context7** for up-to-date documentation
-- **Google Gemini** as primary LLM (AWS Bedrock as fallback)
+- **Multiple LLM providers** (Gemini, OpenAI, Ollama, AWS Bedrock)
 - **Weaviate** for vector memory storage
+- **Intelligent model routing** for task-based LLM selection
 
 ## Features
 
@@ -85,6 +86,7 @@ opsfleet/
 
 - [BigQuery Agent Quick Start](BIGQUERY_QUICKSTART.md) - Get started in 5 minutes
 - [BigQuery Agent Guide](docs/BIGQUERY_AGENT_GUIDE.md) - Comprehensive documentation
+- [Model Router Guide](docs/MODEL_ROUTER.md) - Multi-LLM provider support
 - [Setup Guide](docs/guides/setup-guide.md)
 - [Architecture](docs/architecture/component-breakdown.md)
 - [API Reference](docs/api/)

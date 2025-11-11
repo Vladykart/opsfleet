@@ -2,6 +2,9 @@ langgraph>=0.2.0
 langchain>=0.3.0
 langchain-google-genai>=2.0.0
 langchain-aws>=0.2.0
+langchain-openai>=0.2.0
+langchain-ollama>=0.1.0
+langsmith>=0.1.0
 
 mcp>=0.9.0
 httpx>=0.24.0
@@ -25,3 +28,5 @@ pytest-asyncio>=0.23.0
 
 pydantic>=2.0.0
 typing-extensions>=4.0.0
+
+rich>=13.0.0

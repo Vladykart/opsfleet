@@ -23,26 +23,22 @@ class DataAnalysisAgent(BaseAgent):
         schema = self.bq_runner.get_table_schema("users")
         orders_schema = self.bq_runner.get_table_schema("orders")
         
-        prompt = f"""
-Implement in pure Python using only stdlib. Shortest, elegant, clear, and efficient. Exclude all comments.
+        prompt = f"""Generate a BigQuery SQL query for customer segmentation.
 
-You are a data analyst expert. Generate a BigQuery SQL query for customer segmentation analysis.
+Query: {query}
 
-USER QUERY: {query}
+Tables:
+- bigquery-public-data.thelook_ecommerce.users (id, first_name, last_name, country)
+- bigquery-public-data.thelook_ecommerce.orders (order_id, user_id, status, num_of_item)
 
-AVAILABLE SCHEMAS:
-Users Table: {json.dumps(schema, indent=2)}
-Orders Table: {json.dumps(orders_schema, indent=2)}
+Requirements:
+- Count orders per customer
+- Segment customers by order count (High: >=10, Medium: >=5, Low: <5)
+- Show segment name, customer count, average orders
+- Use WITH clause for customer_orders
+- LIMIT 10
 
-Generate ONE optimized BigQuery Standard SQL query that:
-1. Segments customers by behavior (RFM analysis, purchase frequency, etc.)
-2. Calculates key metrics per segment
-3. Uses CTEs for clarity
-4. Limits results to top segments (LIMIT 100)
-5. Returns ONLY the SQL query, no explanation
-
-SQL Query:
-"""
+Return ONLY the SQL query."""
         
         sql = await self._call_llm(prompt, temperature=0.1)
         sql = self._clean_sql(sql)
@@ -62,30 +58,29 @@ SQL Query:
         products_schema = self.bq_runner.get_table_schema("products")
         order_items_schema = self.bq_runner.get_table_schema("order_items")
         
-        prompt = f"""
-Implement in pure Python using only stdlib. Shortest, elegant, clear, and efficient. Exclude all comments.
+        prompt = f"""Generate a BigQuery SQL query for product analysis.
 
-Generate BigQuery SQL for product performance analysis.
+Query: {query}
 
-USER QUERY: {query}
+Tables available:
+- bigquery-public-data.thelook_ecommerce.products (id, name, category, brand, cost, retail_price)
+- bigquery-public-data.thelook_ecommerce.order_items (order_id, product_id, sale_price, status)
 
-SCHEMAS:
-Products: {json.dumps(products_schema, indent=2)}
-Order Items: {json.dumps(order_items_schema, indent=2)}
+Requirements:
+- Use BigQuery Standard SQL syntax
+- JOIN products and order_items tables
+- Calculate total revenue: SUM(sale_price)
+- Group by product name
+- Order by revenue DESC
+- LIMIT 10
+- Exclude cancelled orders
 
-Create ONE query that analyzes:
-1. Top performing products by revenue/units
-2. Product category trends
-3. Profit margins
-4. Return rates if applicable
-
-Return ONLY SQL, no explanation. Use LIMIT 100.
-
-SQL Query:
-"""
+Return ONLY the SQL query, no explanations."""
         
         sql = await self._call_llm(prompt, temperature=0.1)
         sql = self._clean_sql(sql)
+        
+        self.logger.info(f"Generated SQL for product analysis: {sql[:200]}...")
         
         df = self.bq_runner.execute_query(sql)
         
@@ -102,10 +97,7 @@ SQL Query:
         orders_schema = self.bq_runner.get_table_schema("orders")
         order_items_schema = self.bq_runner.get_table_schema("order_items")
         
-        prompt = f"""
-Implement in pure Python using only stdlib. Shortest, elegant, clear, and efficient. Exclude all comments.
-
-Generate BigQuery SQL for sales trend analysis.
+        prompt = f"""You are a BigQuery SQL expert. Generate a query for sales trend analysis.
 
 USER QUERY: {query}
 
@@ -114,12 +106,11 @@ Orders: {json.dumps(orders_schema, indent=2)}
 Order Items: {json.dumps(order_items_schema, indent=2)}
 
 Create ONE query analyzing:
-1. Sales trends over time (daily/weekly/monthly)
+1. Sales trends over time
 2. Seasonality patterns
 3. Growth rates
-4. Peak periods
 
-Return ONLY SQL. Use LIMIT 365 for time series.
+Return ONLY SQL. Use LIMIT 365.
 
 SQL Query:
 """
@@ -142,26 +133,36 @@ SQL Query:
         users_schema = self.bq_runner.get_table_schema("users")
         orders_schema = self.bq_runner.get_table_schema("orders")
         
-        prompt = f"""
-Implement in pure Python using only stdlib. Shortest, elegant, clear, and efficient. Exclude all comments.
+        prompt = f"""Generate a BigQuery SQL query for geographic analysis.
 
-Generate BigQuery SQL for geographic sales analysis.
+Query: {query}
 
-USER QUERY: {query}
+Tables:
+- `bigquery-public-data.thelook_ecommerce.users` (id, country, state, city, created_at)
+- `bigquery-public-data.thelook_ecommerce.orders` (order_id, user_id, status, num_of_item, created_at)
 
-SCHEMAS:
-Users: {json.dumps(users_schema, indent=2)}
-Orders: {json.dumps(orders_schema, indent=2)}
+Example:
+SELECT 
+    u.country,
+    COUNT(DISTINCT o.order_id) as total_orders,
+    COUNT(DISTINCT u.id) as total_customers,
+    SUM(o.num_of_item) as total_items
+FROM `bigquery-public-data.thelook_ecommerce.users` u
+JOIN `bigquery-public-data.thelook_ecommerce.orders` o ON u.id = o.user_id
+WHERE o.status = 'Complete'
+GROUP BY u.country
+ORDER BY total_orders DESC
+LIMIT 10
 
-Create ONE query analyzing:
-1. Sales by region/country/state
-2. Geographic customer distribution
-3. Regional performance metrics
-4. Market penetration
+Requirements:
+- Use full table names with backticks
+- Use table aliases (u for users, o for orders)
+- Filter for completed orders only
+- GROUP BY geographic dimension
+- ORDER BY relevant metric DESC
+- LIMIT 10
 
-Return ONLY SQL. Use LIMIT 100.
-
-SQL Query:
+Return ONLY the SQL query.
 """
         
         sql = await self._call_llm(prompt, temperature=0.1)
@@ -187,29 +188,37 @@ SQL Query:
             except Exception as e:
                 self.logger.warning(f"Could not fetch schema for {table}: {e}")
         
-        prompt = f"""
-Implement in pure Python using only stdlib. Shortest, elegant, clear, and efficient. Exclude all comments.
+        prompt = f"""Generate a BigQuery SQL query for {analysis_type} analysis.
 
-Generate BigQuery SQL for custom data analysis.
+Query: {query}
 
-USER QUERY: {query}
-ANALYSIS TYPE: {analysis_type}
+Tables (use full names with backticks):
+- `bigquery-public-data.thelook_ecommerce.users` (id, country, state, city)
+- `bigquery-public-data.thelook_ecommerce.orders` (order_id, user_id, status, num_of_item)
+- `bigquery-public-data.thelook_ecommerce.order_items` (order_id, product_id, sale_price)
+- `bigquery-public-data.thelook_ecommerce.products` (id, name, category, cost, retail_price)
 
-AVAILABLE SCHEMAS:
-{json.dumps(schemas, indent=2)}
+Example for geographic analysis:
+SELECT 
+    u.country,
+    COUNT(DISTINCT o.order_id) as order_count,
+    COUNT(DISTINCT u.id) as customer_count
+FROM `bigquery-public-data.thelook_ecommerce.users` u
+JOIN `bigquery-public-data.thelook_ecommerce.orders` o ON u.id = o.user_id
+WHERE o.status = 'Complete'
+GROUP BY u.country
+ORDER BY order_count DESC
+LIMIT 10
 
-Dataset: bigquery-public-data.thelook_ecommerce
+Requirements:
+- Use full table names with backticks
+- Use clear table aliases (u, o, oi, p)
+- Include WHERE clause to filter valid data
+- GROUP BY all non-aggregated columns
+- ORDER BY relevant metric DESC
+- LIMIT 10
 
-Create ONE optimized BigQuery Standard SQL query that:
-1. Addresses the user's specific question
-2. Uses appropriate tables and joins
-3. Calculates relevant metrics
-4. Uses CTEs for complex logic
-5. Limits results appropriately (LIMIT 100-500 depending on analysis)
-
-Return ONLY the SQL query, no explanation or markdown.
-
-SQL Query:
+Return ONLY the SQL query, no explanations.
 """
         
         sql = await self._call_llm(prompt, temperature=0.1)
@@ -228,14 +237,34 @@ SQL Query:
     
     def _clean_sql(self, sql: str) -> str:
         sql = sql.strip()
+        
         if sql.startswith("```sql"):
             sql = sql[6:]
         elif sql.startswith("```"):
             sql = sql[3:]
         if sql.endswith("```"):
             sql = sql[:-3]
+        
         sql = sql.strip()
-        return sql
+        
+        lines = sql.split('\n')
+        cleaned_lines = []
+        for line in lines:
+            line = line.strip()
+            if line and not line.startswith('#') and not line.startswith('--'):
+                cleaned_lines.append(line)
+        
+        sql = ' '.join(cleaned_lines)
+        
+        if 'SQL Query:' in sql:
+            sql = sql.split('SQL Query:')[-1].strip()
+        
+        sql = sql.replace('\\n', ' ')
+        
+        import re
+        sql = re.sub(r'\s+', ' ', sql)
+        
+        return sql.strip()
     
     async def _generate_insights(self, df: pd.DataFrame, analysis_type: str) -> List[str]:
         if df.empty:
