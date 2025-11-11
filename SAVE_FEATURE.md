@@ -4,7 +4,18 @@ The enhanced CLI now supports saving conversations in multiple formats using pan
 
 ## Usage
 
-### Basic Save
+### Method 1: Natural Language (NEW!)
+Just ask naturally - the agent will detect and save automatically:
+```
+save this conversation
+save the data as csv
+export this to json
+download this as excel
+can you save this?
+please save the conversation as markdown
+```
+
+### Method 2: Command
 ```bash
 /save          # Defaults to CSV format
 /save csv      # CSV format (Excel-compatible)
