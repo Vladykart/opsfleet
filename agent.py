@@ -1,19 +1,24 @@
 """
 Simple BigQuery Agent using LangGraph and Gemini.
-Uses Application Default Credentials (ADC) for authentication.
+Uses Application Default Credentials (ADC) or service account for authentication.
 """
 import os
 from typing import TypedDict, Annotated
 from langgraph.graph import StateGraph, END
 from langgraph.prebuilt import ToolNode
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
+from langchain_core.messages import HumanMessage, AIMessage, ToolMessage, SystemMessage
 from langchain_core.tools import tool
 from google.cloud import bigquery
+from dotenv import load_dotenv
 
+# Load environment variables
+load_dotenv()
 
-# Initialize BigQuery client with ADC
-bq_client = bigquery.Client()
+# Initialize BigQuery client
+# Will use GOOGLE_APPLICATION_CREDENTIALS if set, otherwise ADC
+project_id = os.getenv("GCP_PROJECT_ID")
+bq_client = bigquery.Client(project=project_id)
 
 
 @tool
@@ -52,7 +57,7 @@ class AgentState(TypedDict):
 
 # Initialize the LLM with tools
 llm = ChatGoogleGenerativeAI(
-    model="gemini-1.5-flash",
+    model="gemini-2.5-flash",
     temperature=0.3
 )
 tools = [query_bigquery]
@@ -114,30 +119,21 @@ def run_agent(query: str) -> str:
     Returns:
         The agent's response
     """
-    # Add system message with BigQuery context
-    system_msg = """You are a helpful BigQuery data analyst assistant.
-    
-You have access to the BigQuery public dataset: bigquery-public-data.thelook_ecommerce
+    # Create a prompt with context
+    prompt = f"""You are a BigQuery data analyst. You have access to bigquery-public-data.thelook_ecommerce dataset.
 
-Available tables:
-- users: Customer information (id, first_name, last_name, email, country, city, created_at)
-- products: Product catalog (id, name, category, brand, retail_price, cost)
-- orders: Order records (order_id, user_id, status, created_at, shipped_at, delivered_at)
-- order_items: Order line items (id, order_id, user_id, product_id, sale_price, created_at)
+Tables:
+- users (id, first_name, last_name, email, country, city, created_at)
+- products (id, name, category, brand, retail_price, cost)
+- orders (order_id, user_id, status, created_at, shipped_at, delivered_at)
+- order_items (id, order_id, user_id, product_id, sale_price, created_at)
 
-When writing SQL queries:
-1. Always use fully qualified table names: `bigquery-public-data.thelook_ecommerce.table_name`
-2. Use backticks around table names
-3. Limit results to 10 rows for readability
-4. Be specific and accurate with column names
+Use fully qualified table names with backticks. Limit to 10 rows.
 
-Answer the user's question by querying the database when needed."""
+User question: {query}"""
 
     initial_state = {
-        "messages": [
-            HumanMessage(content=system_msg),
-            HumanMessage(content=query)
-        ]
+        "messages": [HumanMessage(content=prompt)]
     }
     
     # Run the graph
