@@ -3,12 +3,13 @@ Simple BigQuery Agent using LangGraph and Gemini.
 Uses Application Default Credentials (ADC) or service account for authentication.
 """
 import os
-from typing import TypedDict, Annotated
-from langgraph.graph import StateGraph, END
+from typing import TypedDict, Annotated, Sequence
+from langgraph.graph import StateGraph, END, START
 from langgraph.prebuilt import ToolNode
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_core.messages import HumanMessage, AIMessage, ToolMessage, SystemMessage
+from langchain_core.messages import HumanMessage, AIMessage, ToolMessage, BaseMessage
 from langchain_core.tools import tool
+from langgraph.graph.message import add_messages
 from google.cloud import bigquery
 from dotenv import load_dotenv
 
@@ -52,7 +53,7 @@ def query_bigquery(sql: str) -> str:
 
 # Define the agent state
 class AgentState(TypedDict):
-    messages: Annotated[list, "The messages in the conversation"]
+    messages: Annotated[Sequence[BaseMessage], add_messages]
 
 
 # Initialize the LLM with tools
@@ -90,7 +91,7 @@ workflow.add_node("agent", call_model)
 workflow.add_node("tools", ToolNode(tools))
 
 # Set entry point
-workflow.set_entry_point("agent")
+workflow.add_edge(START, "agent")
 
 # Add conditional edges
 workflow.add_conditional_edges(
