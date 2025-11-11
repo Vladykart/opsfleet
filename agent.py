@@ -16,6 +16,12 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
+# Enable LangSmith tracing if configured
+if os.getenv("LANGCHAIN_TRACING_V2") == "true":
+    os.environ["LANGCHAIN_ENDPOINT"] = "https://api.smith.langchain.com"
+    os.environ["LANGCHAIN_PROJECT"] = os.getenv("LANGCHAIN_PROJECT", "opsfleet-agent")
+    print("✅ LangSmith tracing enabled")
+
 # Initialize BigQuery client
 # Will use GOOGLE_APPLICATION_CREDENTIALS if set, otherwise ADC
 project_id = os.getenv("GCP_PROJECT_ID")
