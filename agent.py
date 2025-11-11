@@ -19,7 +19,16 @@ load_dotenv()
 # Initialize BigQuery client
 # Will use GOOGLE_APPLICATION_CREDENTIALS if set, otherwise ADC
 project_id = os.getenv("GCP_PROJECT_ID")
-bq_client = bigquery.Client(project=project_id)
+
+# Check if credentials file is specified
+credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+if credentials_path and os.path.exists(credentials_path):
+    from google.oauth2 import service_account
+    credentials = service_account.Credentials.from_service_account_file(credentials_path)
+    bq_client = bigquery.Client(project=project_id, credentials=credentials)
+else:
+    # Use ADC
+    bq_client = bigquery.Client(project=project_id)
 
 
 @tool
