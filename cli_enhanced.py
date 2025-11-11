@@ -86,6 +86,31 @@ class RichChatCLI:
         self.console.print(Align.center(banner))
         self.console.print()
         
+        # Show environment info
+        env_info = Table.grid(padding=(0, 2))
+        env_info.add_column(style="dim cyan", justify="right")
+        env_info.add_column(style="dim white")
+        
+        env_info.add_row("📦 Version:", "v0.1.0")
+        env_info.add_row("🔧 Python:", f"{sys.version.split()[0]}")
+        env_info.add_row("📁 Session:", self.session_id)
+        
+        if os.getenv("LANGSMITH_TRACING_V2") == "true":
+            env_info.add_row("✅ LangSmith:", "Enabled")
+        
+        gcp_project = os.getenv("GCP_PROJECT_ID")
+        if gcp_project:
+            env_info.add_row("☁️  GCP Project:", gcp_project)
+        
+        self.console.print(Panel(
+            Align.center(env_info),
+            title="[dim cyan]Environment Info[/dim cyan]",
+            border_style="dim cyan",
+            box=box.ROUNDED,
+            padding=(0, 1)
+        ))
+        self.console.print()
+        
         help_text = Table.grid(padding=(0, 2))
         help_text.add_column(style="cyan", justify="right")
         help_text.add_column(style="white")
@@ -424,6 +449,22 @@ class RichChatCLI:
         start_time = datetime.now()
         
         self.console.print()
+        
+        # Show processing steps
+        log_panel = Panel(
+            "[dim]📋 Processing Steps:[/dim]\n"
+            "[dim]  1. Loading system prompt...[/dim]\n"
+            "[dim]  2. Analyzing query intent...[/dim]\n"
+            "[dim]  3. Generating SQL if needed...[/dim]\n"
+            "[dim]  4. Executing query...[/dim]\n"
+            "[dim]  5. Formatting response...[/dim]",
+            title="[cyan]🔍 Agent Workflow[/cyan]",
+            border_style="dim cyan",
+            padding=(0, 1)
+        )
+        self.console.print(log_panel)
+        self.console.print()
+        
         with Progress(
             SpinnerColumn(style="cyan"),
             TextColumn("[cyan]Processing your query..."),
@@ -432,19 +473,30 @@ class RichChatCLI:
             task = progress.add_task("", total=None)
             
             try:
+                # Log: Starting agent
+                self.console.print("[dim]→ Invoking LangGraph agent...[/dim]")
                 response = run_agent(query)
                 success = True
+                self.console.print("[dim]✓ Agent completed successfully[/dim]")
             except Exception as e:
                 response = f"❌ Error: {str(e)}"
                 success = False
+                self.console.print(f"[dim red]✗ Agent error: {str(e)}[/dim red]")
             
             progress.update(task, completed=True)
         
         elapsed = (datetime.now() - start_time).total_seconds()
         
+        # Log: Formatting response
+        self.console.print("[dim]→ Formatting response...[/dim]\n")
         self.format_response(response)
         
-        self.console.print(f"[dim]⏱️  Completed in {elapsed:.2f}s[/dim]\n")
+        # Show timing and token info
+        info_text = f"[dim]⏱️  Completed in {elapsed:.2f}s"
+        if os.getenv("LANGSMITH_TRACING_V2") == "true":
+            info_text += " | 📊 Trace: LangSmith"
+        info_text += "[/dim]\n"
+        self.console.print(info_text)
         
         if success:
             self.suggest_next_steps(query, response)
