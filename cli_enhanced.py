@@ -628,11 +628,7 @@ What specific e-commerce analytics question do you have in mind?"""
                             break
                         continue
                     
-                    save_format = self.detect_save_request(query)
-                    if save_format:
-                        self.save_conversation(save_format)
-                        continue
-                    
+                    # Process query - agent will handle save requests via tool
                     self.process_query(query)
                     
                 except KeyboardInterrupt:
