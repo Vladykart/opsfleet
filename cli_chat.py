@@ -102,6 +102,7 @@ class BeautifulCLI:
     def __init__(self, verbose: bool = False):
         self.console = Console()
         self.agent: Optional[ProfessionalReActAgent] = None
+        self.llm_client: Optional[SimpleLLMClient] = None
         self.session_start = datetime.now()
         self.query_count = 0
         self.verbose = verbose
@@ -130,11 +131,11 @@ class BeautifulCLI:
             )
             
             progress.update(task, description="Initializing LLM...")
-            llm_client = SimpleLLMClient(config)
+            self.llm_client = SimpleLLMClient(config)
             
             progress.update(task, description="Setting up tools...")
             tools = [
-                BigQueryTool(bq_runner, llm_client),
+                BigQueryTool(bq_runner, self.llm_client),
                 AnalysisTool(),
                 ReportTool()
             ]
@@ -142,7 +143,7 @@ class BeautifulCLI:
             progress.update(task, description="Creating agent...")
             # Pass thread_id to agent for LangSmith tracking
             config["thread_id"] = self.thread_id
-            self.agent = ProfessionalReActAgent(tools, llm_client, config)
+            self.agent = ProfessionalReActAgent(tools, self.llm_client, config)
             
             progress.update(task, description="Ready!", completed=True)
     
