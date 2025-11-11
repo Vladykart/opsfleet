@@ -230,7 +230,18 @@ def run_agent(query: str) -> str:
     
     for message in reversed(result["messages"]):
         if isinstance(message, AIMessage):
-            return message.content
+            content = message.content
+            # Handle both string and list content
+            if isinstance(content, list):
+                # Extract text from content blocks
+                text_parts = []
+                for item in content:
+                    if isinstance(item, dict) and "text" in item:
+                        text_parts.append(item["text"])
+                    elif isinstance(item, str):
+                        text_parts.append(item)
+                return "\n".join(text_parts) if text_parts else "No response generated"
+            return content
     
     return "No response generated"
 
