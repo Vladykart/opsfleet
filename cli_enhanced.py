@@ -617,10 +617,25 @@ What specific e-commerce analytics question do you have in mind?"""
                         if 0 <= idx < len(self.last_suggestions):
                             selected = self.last_suggestions[idx]
                             self.console.print(f"[cyan]Selected:[/cyan] {selected}\n")
+                            
+                            # Handle save suggestion
                             if "save this" in selected.lower():
                                 self.save_conversation("csv")
-                            else:
-                                self.console.print("[yellow]💡 Tip: Describe what you'd like to know based on this suggestion[/yellow]\n")
+                                continue
+                            
+                            # For other suggestions, expand into a full query
+                            # Get context from last query
+                            context = ""
+                            if self.history:
+                                last_entry = self.history[-1]
+                                context = f"Based on my previous query about: {last_entry['query']}, "
+                            
+                            # Create expanded query
+                            expanded_query = f"{context}{selected.lower()}"
+                            self.console.print(f"[dim]→ Expanding to: {expanded_query}[/dim]\n")
+                            
+                            # Process the expanded query
+                            self.process_query(expanded_query)
                             continue
                     
                     if query.startswith("/"):
