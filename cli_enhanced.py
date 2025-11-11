@@ -54,6 +54,7 @@ class RichChatCLI:
         self.session = PromptSession(history=FileHistory(str(self.history_file)))
         self.bindings = self._create_key_bindings()
         self.last_query_data = None
+        self.last_suggestions = []
         
     def _create_key_bindings(self):
         kb = KeyBindings()
@@ -361,6 +362,8 @@ class RichChatCLI:
         if not suggestions:
             return
         
+        self.last_suggestions = suggestions
+        
         suggestions_table = Table(
             title="💡 What would you like to do next?",
             box=box.ROUNDED,
@@ -375,7 +378,7 @@ class RichChatCLI:
             suggestions_table.add_row(f"[{idx}]", suggestion)
         
         self.console.print(suggestions_table)
-        self.console.print("[dim]💬 Type your choice or ask a new question[/dim]\n")
+        self.console.print("[dim]💬 Type 1, 2, or 3 to select, or ask a new question[/dim]\n")
     
     def _generate_suggestions(self, query: str, response: str) -> List[str]:
         query_lower = query.lower()
@@ -525,10 +528,26 @@ class RichChatCLI:
                         ],
                         multiline=False,
                         key_bindings=self.bindings
-                    ).strip()
+                    )
+                    
+                    if query is None:
+                        continue
+                    
+                    query = query.strip()
                     
                     if not query:
                         continue
+                    
+                    if query in ["1", "2", "3"] and self.last_suggestions:
+                        idx = int(query) - 1
+                        if 0 <= idx < len(self.last_suggestions):
+                            selected = self.last_suggestions[idx]
+                            self.console.print(f"[cyan]Selected:[/cyan] {selected}\n")
+                            if "save this" in selected.lower():
+                                self.save_conversation("csv")
+                            else:
+                                self.console.print("[yellow]💡 Tip: Describe what you'd like to know based on this suggestion[/yellow]\n")
+                            continue
                     
                     if query.startswith("/"):
                         if not self.handle_command(query):
