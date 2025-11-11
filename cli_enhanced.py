@@ -564,9 +564,28 @@ class RichChatCLI:
         
         return None
     
+    def show_welcome_message(self):
+        """Display welcome message from the agent."""
+        welcome_text = """I am an expert BigQuery SQL engineer and data analyst specializing in e-commerce analytics. I can help you by:
+
+• Analyzing the schema of the bigquery-public-data.thelook_ecommerce dataset.
+• Writing and executing optimized SQL queries to extract insights from tables like users, products, orders, and order_items.
+• Answering questions related to user behavior, product performance, order trends, and sales data within the e-commerce domain.
+
+What specific e-commerce analytics question do you have in mind?"""
+        
+        self.console.print(Panel(
+            welcome_text,
+            title="[cyan]🤖 Assistant[/cyan]",
+            border_style="cyan",
+            padding=(1, 2)
+        ))
+        self.console.print()
+    
     def run(self):
         self.console.clear()
         self.show_banner()
+        self.show_welcome_message()
         
         try:
             while True:
