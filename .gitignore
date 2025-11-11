@@ -5,3 +5,9 @@ venv/
 .pytest_cache/
 sessions/
 .DS_Store
+.langgraph_api/
+.opsfleet_history
+opsfleet_agent.egg-info/
+*.egg-info/
+build/
+dist/
