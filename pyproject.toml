@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "opsfleet-agent"
+version = "0.1.0"
+description = "BigQuery AI Agent with LangGraph"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "langgraph>=1.0.0",
+    "langchain-google-genai>=2.0.0",
+    "langchain-core>=1.0.0",
+    "google-cloud-bigquery>=3.25.0",
+    "python-dotenv>=1.0.0",
+    "rich>=13.0.0",
+    "prompt-toolkit>=3.0.43",
+    "pandas>=2.2.0",
+    "openpyxl>=3.1.2",
+    "pytest>=8.0.0"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.21.0"
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["*"]
+exclude = ["tests*", "venv*", "sessions*"]
