@@ -29,6 +29,7 @@ load_dotenv()
 sys.path.insert(0, os.path.dirname(__file__))
 
 from agent import run_agent
+from schema_analyzer import schema_analyzer, get_schema_info, get_relationships
 
 console = Console()
 
@@ -95,6 +96,7 @@ Show me sales trends by category
         commands = [
             ("/help", "Show this help message"),
             ("/history", "Show query history"),
+            ("/schema [table]", "Show database schema (optional: specific table)"),
             ("/clear", "Clear the screen"),
             ("/stats", "Show session statistics"),
             ("/export", "Export session history"),
@@ -155,6 +157,102 @@ Show me sales trends by category
         )
         self.console.print(stats_panel)
         self.console.print()
+    
+    def show_schema(self, table_name: Optional[str] = None):
+        """Display database schema"""
+        try:
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[cyan]Fetching schema..."),
+                console=self.console
+            ) as progress:
+                progress.add_task("", total=None)
+                
+                if table_name:
+                    # Show specific table
+                    analysis = get_schema_info(table_name)
+                    
+                    # Create table for columns
+                    col_table = Table(
+                        title=f"Table: {analysis['table_name']}",
+                        box=box.ROUNDED,
+                        show_header=True,
+                        header_style="bold green"
+                    )
+                    col_table.add_column("Column", style="cyan")
+                    col_table.add_column("Type", style="yellow")
+                    col_table.add_column("Description", style="white")
+                    
+                    for col in analysis['columns']:
+                        col_table.add_row(
+                            col['name'],
+                            col['type'],
+                            col['description'] or "No description"
+                        )
+                    
+                    # Stats panel
+                    stats = Panel(
+                        f"""📊 Statistics:
+  • Rows: [yellow]{analysis['row_count']:,}[/yellow]
+  • Size: [yellow]{analysis['size_mb']} MB[/yellow]
+  • Columns: [yellow]{analysis['column_count']}[/yellow]""",
+                        border_style="blue",
+                        box=box.ROUNDED
+                    )
+                    
+                    self.console.print(stats)
+                    self.console.print(col_table)
+                    
+                    # Show relationships
+                    relationships = get_relationships()
+                    if table_name in relationships:
+                        rel_panel = Panel(
+                            "\n".join([f"→ {rel}" for rel in relationships[table_name]]),
+                            title="🔗 Relationships",
+                            border_style="magenta",
+                            box=box.ROUNDED
+                        )
+                        self.console.print(rel_panel)
+                else:
+                    # Show summary
+                    summary = get_schema_info()
+                    
+                    summary_table = Table(
+                        title=f"Database: {summary['dataset']}",
+                        box=box.ROUNDED,
+                        show_header=True,
+                        header_style="bold cyan"
+                    )
+                    summary_table.add_column("Table", style="cyan")
+                    summary_table.add_column("Rows", style="yellow", justify="right")
+                    summary_table.add_column("Columns", style="green", justify="right")
+                    summary_table.add_column("Size (MB)", style="magenta", justify="right")
+                    
+                    for table, info in summary['tables'].items():
+                        summary_table.add_row(
+                            table,
+                            f"{info['rows']:,}",
+                            str(info['columns']),
+                            str(info['size_mb'])
+                        )
+                    
+                    stats_panel = Panel(
+                        f"""📊 Total Statistics:
+  • Tables: [yellow]{summary['table_count']}[/yellow]
+  • Total Rows: [yellow]{summary['total_rows']:,}[/yellow]
+  • Total Size: [yellow]{summary['total_size_mb']} MB[/yellow]""",
+                        border_style="blue",
+                        box=box.ROUNDED
+                    )
+                    
+                    self.console.print(stats_panel)
+                    self.console.print(summary_table)
+                    self.console.print("\n[dim]💡 Tip: Use /schema <table_name> to see detailed info[/dim]")
+                
+                self.console.print()
+                
+        except Exception as e:
+            self.console.print(f"[red]❌ Error fetching schema: {e}[/red]\n")
         
     def export_history(self):
         """Export session history to file"""
@@ -238,20 +336,25 @@ Show me sales trends by category
         
     def handle_command(self, command: str) -> bool:
         """Handle special commands. Returns True if should continue, False if should exit"""
-        command = command.lower().strip()
+        command_lower = command.lower().strip()
         
-        if command == "/help":
+        if command_lower == "/help":
             self.show_help()
-        elif command == "/history":
+        elif command_lower == "/history":
             self.show_history()
-        elif command == "/clear":
+        elif command_lower.startswith("/schema"):
+            # Parse table name if provided
+            parts = command.strip().split(maxsplit=1)
+            table_name = parts[1] if len(parts) > 1 else None
+            self.show_schema(table_name)
+        elif command_lower == "/clear":
             self.console.clear()
             self.show_welcome()
-        elif command == "/stats":
+        elif command_lower == "/stats":
             self.show_stats()
-        elif command == "/export":
+        elif command_lower == "/export":
             self.export_history()
-        elif command in ["/exit", "/quit"]:
+        elif command_lower in ["/exit", "/quit"]:
             return False
         else:
             self.console.print(f"[red]Unknown command: {command}[/red]")

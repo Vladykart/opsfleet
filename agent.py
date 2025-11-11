@@ -12,6 +12,7 @@ from langchain_core.tools import tool
 from langgraph.graph.message import add_messages
 from google.cloud import bigquery
 from dotenv import load_dotenv
+from schema_analyzer import schema_analyzer, get_schema_info, get_relationships
 
 # Load environment variables
 load_dotenv()
@@ -46,16 +47,11 @@ def query_bigquery(sql: str) -> str:
         sql: The SQL query to execute
         
     Returns:
-        Query results as a formatted string
+        Query results as string
     """
     try:
         query_job = bq_client.query(sql)
-        results = query_job.result()
-        
-        # Format results
-        rows = []
-        for row in results:
-            rows.append(dict(row))
+        rows = [dict(row) for row in query_job.result()]
         
         if not rows:
             return "Query executed successfully but returned no results."
@@ -64,6 +60,64 @@ def query_bigquery(sql: str) -> str:
         return str(rows[:10])
     except Exception as e:
         return f"Error executing query: {str(e)}"
+
+
+@tool
+def analyze_schema(table_name: str = None) -> str:
+    """
+    Analyze database schema and return detailed information.
+    
+    Args:
+        table_name: Optional table name to analyze. If None, returns summary of all tables.
+        
+    Returns:
+        Schema analysis as formatted string
+    """
+    try:
+        if table_name:
+            # Analyze specific table
+            analysis = get_schema_info(table_name)
+            
+            result = f"""
+📋 Table: {analysis['table_name']}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 Statistics:
+  • Rows: {analysis['row_count']:,}
+  • Size: {analysis['size_mb']} MB
+  • Columns: {analysis['column_count']}
+
+📝 Columns:
+"""
+            for col in analysis['columns']:
+                result += f"  • {col['name']} ({col['type']}) - {col['description']}\n"
+            
+            # Add relationships
+            relationships = get_relationships()
+            if table_name in relationships:
+                result += "\n🔗 Relationships:\n"
+                for rel in relationships[table_name]:
+                    result += f"  → {rel}\n"
+            
+            return result
+        else:
+            # Return summary
+            summary = get_schema_info()
+            result = f"""
+📊 Database Summary: {summary['dataset']}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  • Tables: {summary['table_count']}
+  • Total Rows: {summary['total_rows']:,}
+  • Total Size: {summary['total_size_mb']} MB
+
+📋 Tables:
+"""
+            for table, info in summary['tables'].items():
+                result += f"  • {table}: {info['rows']:,} rows, {info['columns']} columns, {info['size_mb']} MB\n"
+            
+            return result
+            
+    except Exception as e:
+        return f"Error analyzing schema: {str(e)}"
 
 
 # Define the agent state
@@ -78,7 +132,7 @@ llm = ChatGoogleGenerativeAI(
     temperature=0.1,  # Low temperature for precise SQL generation
     max_tokens=2048
 )
-tools = [query_bigquery]
+tools = [query_bigquery, analyze_schema]
 llm_with_tools = llm.bind_tools(tools)
 
 
