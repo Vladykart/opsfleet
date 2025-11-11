@@ -23,14 +23,21 @@ Beautiful, modern CLI interface inspired by [rich-chat](https://github.com/qnixs
 - `/history` - View last 10 queries with status
 - `/schema [table]` - Show database schema (all tables or specific)
 - `/stats` - Session statistics (queries, success rate, avg time)
+- `/save [format]` - Save conversation (txt, csv, json, excel, md)
 - `/export` - Export session history to file
 - `/clear` - Clear screen and show banner
 - `/exit` or `/quit` - Exit application
 
-### 💾 Session Management
+### 💾 Session Management & Data Export
 - **Auto-save History** - All queries saved to `.opsfleet_history`
 - **Session Files** - Each session exported to `sessions/session_YYYYMMDD_HHMMSS.txt`
 - **Query Tracking** - Track success/failure, timing, and responses
+- **Pandas Export** - Save conversations in multiple formats:
+  - `txt` - Plain text format
+  - `csv` - Comma-separated values (opens in Excel)
+  - `json` - JSON format for APIs
+  - `excel` - Native Excel format (.xlsx)
+  - `md` - Markdown format for documentation
 
 ## Usage
 
@@ -84,6 +91,8 @@ python3 cli_enhanced.py
 ### Key Libraries
 - `rich` - Terminal formatting and panels
 - `prompt_toolkit` - Advanced input with keyboard bindings
+- `pandas` - Data export and manipulation
+- `openpyxl` - Excel file support
 - `langgraph` - Agent orchestration
 - `google-cloud-bigquery` - Database queries
 
@@ -105,8 +114,18 @@ python3 cli_enhanced.py
 1. **Multiline Queries** - Use Shift+Enter for complex questions
 2. **Command History** - Use arrow keys to recall previous queries
 3. **Quick Schema** - Type `/schema` to see all tables at once
-4. **Export Sessions** - Use `/export` before exiting to save your work
-5. **Clear Screen** - Type `/clear` to reset the view
+4. **Save Conversations** - Use `/save csv` or `/save excel` to export data
+5. **Export Sessions** - Use `/export` before exiting to save your work
+6. **Clear Screen** - Type `/clear` to reset the view
+
+### Save Format Examples
+```bash
+/save txt       # Plain text format
+/save csv       # CSV for Excel/analysis
+/save json      # JSON for APIs/scripts
+/save excel     # Native Excel format
+/save md        # Markdown for docs
+```
 
 ## Future Enhancements
 

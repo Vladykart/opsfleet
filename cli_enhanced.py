@@ -19,6 +19,9 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.layout import Layout
 from rich.align import Align
 from dotenv import load_dotenv
+import pandas as pd
+import json
+import re
 
 load_dotenv()
 sys.path.insert(0, os.path.dirname(__file__))
@@ -33,6 +36,7 @@ COMMANDS = {
     "/history": "View query history",
     "/schema": "Show database schema",
     "/stats": "Session statistics",
+    "/save": "Save conversation (txt, csv, json, excel, md)",
     "/export": "Export session history",
     "/clear": "Clear screen",
     "/exit": "Exit application"
@@ -49,6 +53,7 @@ class RichChatCLI:
         self.history_file = Path(".opsfleet_history")
         self.session = PromptSession(history=FileHistory(str(self.history_file)))
         self.bindings = self._create_key_bindings()
+        self.last_query_data = None
         
     def _create_key_bindings(self):
         kb = KeyBindings()
@@ -276,6 +281,69 @@ class RichChatCLI:
         except Exception as e:
             self.console.print(f"[red]❌ Export failed: {e}[/red]\n")
     
+    def save_conversation(self, format_type: str = "csv"):
+        try:
+            if not self.history:
+                self.console.print("[yellow]⚠️  No conversation to save yet[/yellow]\n")
+                return
+            
+            df = pd.DataFrame(self.history)
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            
+            if format_type == "csv":
+                filename = self.session_dir / f"conversation_{timestamp}.csv"
+                df.to_csv(filename, index=False)
+            elif format_type == "json":
+                filename = self.session_dir / f"conversation_{timestamp}.json"
+                df.to_json(filename, orient="records", indent=2)
+            elif format_type == "excel" or format_type == "xlsx":
+                filename = self.session_dir / f"conversation_{timestamp}.xlsx"
+                df.to_excel(filename, index=False, engine="openpyxl")
+            elif format_type == "md" or format_type == "markdown":
+                filename = self.session_dir / f"conversation_{timestamp}.md"
+                with open(filename, "w") as f:
+                    f.write(f"# OpsFleet Conversation - {timestamp}\n\n")
+                    for idx, entry in enumerate(self.history, 1):
+                        f.write(f"## Query {idx} ({entry['time']})\n\n")
+                        f.write(f"**User:** {entry['query']}\n\n")
+                        f.write(f"**Assistant:**\n\n{entry.get('response', 'No response')}\n\n")
+                        f.write(f"*Time: {entry.get('elapsed', 0):.2f}s | Status: {'✅' if entry.get('success') else '❌'}*\n\n")
+                        f.write("---\n\n")
+            elif format_type == "txt":
+                filename = self.session_dir / f"conversation_{timestamp}.txt"
+                with open(filename, "w") as f:
+                    f.write(f"OpsFleet Conversation - {timestamp}\n")
+                    f.write("=" * 70 + "\n\n")
+                    for idx, entry in enumerate(self.history, 1):
+                        f.write(f"[{entry['time']}] Query #{idx}\n")
+                        f.write(f"User: {entry['query']}\n\n")
+                        f.write(f"Assistant: {entry.get('response', 'No response')}\n\n")
+                        f.write(f"Time: {entry.get('elapsed', 0):.2f}s\n")
+                        f.write("-" * 70 + "\n\n")
+            else:
+                self.console.print(f"[red]❌ Unknown format: {format_type}[/red]")
+                self.console.print("[yellow]Available: txt, csv, json, excel, md[/yellow]\n")
+                return
+            
+            stats_text = f"""[green]✅ Conversation saved successfully![/green]
+
+[cyan]📁 File:[/cyan] {filename}
+[cyan]📊 Format:[/cyan] {format_type.upper()}
+[cyan]💬 Queries:[/cyan] {len(self.history)}
+[cyan]📏 Size:[/cyan] {filename.stat().st_size / 1024:.2f} KB"""
+            
+            self.console.print(Panel(
+                stats_text,
+                title="💾 Save Complete",
+                border_style="green",
+                box=box.ROUNDED
+            ))
+            self.console.print()
+            
+        except Exception as e:
+            self.console.print(f"[red]❌ Save failed: {e}[/red]\n")
+            self.console.print("[yellow]💡 Tip: For Excel format, install: pip install openpyxl[/yellow]\n")
+    
     def format_response(self, response: str):
         self.console.print()
         self.console.print(Panel(
@@ -337,6 +405,10 @@ class RichChatCLI:
             self.show_banner()
         elif cmd_lower == "/stats":
             self.show_stats_panel()
+        elif cmd_lower.startswith("/save"):
+            parts = command.strip().split(maxsplit=1)
+            format_type = parts[1] if len(parts) > 1 else "csv"
+            self.save_conversation(format_type)
         elif cmd_lower == "/export":
             self.export_history()
         elif cmd_lower in ["/exit", "/quit"]:
