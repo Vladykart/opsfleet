@@ -72,9 +72,11 @@ class AgentState(TypedDict):
 
 
 # Initialize the LLM with tools
+# Using best practices from config/personas/default.yaml
 llm = ChatGoogleGenerativeAI(
     model="gemini-2.5-flash",
-    temperature=0.3
+    temperature=0.1,  # Low temperature for precise SQL generation
+    max_tokens=2048
 )
 tools = [query_bigquery]
 llm_with_tools = llm.bind_tools(tools)
@@ -127,7 +129,7 @@ app = workflow.compile()
 
 def run_agent(query: str) -> str:
     """
-    Run the agent with a user query.
+    Run the agent with a query.
     
     Args:
         query: The user's question
@@ -135,27 +137,47 @@ def run_agent(query: str) -> str:
     Returns:
         The agent's response
     """
-    # Create a prompt with context
-    prompt = f"""You are a BigQuery data analyst. You have access to bigquery-public-data.thelook_ecommerce dataset.
+    prompt = f"""You are an expert BigQuery SQL engineer and data analyst for e-commerce analytics.
 
-Tables:
+DATASET: bigquery-public-data.thelook_ecommerce
+
+SCHEMA:
 - users (id, first_name, last_name, email, country, city, created_at)
 - products (id, name, category, brand, retail_price, cost)
 - orders (order_id, user_id, status, created_at, shipped_at, delivered_at)
 - order_items (id, order_id, user_id, product_id, sale_price, created_at)
 
-Use fully qualified table names with backticks. Limit to 10 rows.
+CRITICAL SQL RULES:
+1. TIMESTAMP Handling:
+   - ALWAYS use: CAST(timestamp_col AS DATE) >= DATE('YYYY-MM-DD')
+   - NEVER compare TIMESTAMP directly with string dates
 
-User question: {query}"""
+2. Column Names:
+   - products table: use "id" NOT "product_id"
+   - users table: use "id" NOT "user_id"
+   - orders table: "order_id", "user_id", "created_at"
 
-    initial_state = {
-        "messages": [HumanMessage(content=prompt)]
-    }
+3. GROUP BY + ORDER BY:
+   - ORDER BY columns MUST be in GROUP BY OR aggregated
+   - Use MAX(col), MIN(col), etc. for ORDER BY with GROUP BY
+
+4. Optimization:
+   - Use LIMIT for top-N queries
+   - Avoid SELECT * when possible
+   - Use appropriate JOINs (INNER vs LEFT)
+   - Add WHERE filters before JOINs
+
+TASK:
+1. Analyze the user's question
+2. Generate precise, optimized SQL query if needed
+3. Execute using query_bigquery tool
+4. Provide clear, professional answer
+
+USER QUERY: {query}"""
     
-    # Run the graph
+    initial_state = {"messages": [HumanMessage(content=prompt)]}
     result = app.invoke(initial_state)
     
-    # Get the final AI message
     for message in reversed(result["messages"]):
         if isinstance(message, AIMessage):
             return message.content
